@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import client from "../api/client";
 
@@ -8,6 +9,7 @@ interface Project {
   academic_year_start: number;
   description?: string;
   user_id: number;
+  is_populated: boolean;
 }
 
 interface AssessmentType {
@@ -17,6 +19,7 @@ interface AssessmentType {
 
 const HomePage = () => {
   const { logout } = useAuth();
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -66,7 +69,6 @@ const HomePage = () => {
     setAssessmentTypes(assessmentTypes.filter((_, i) => i !== index));
   };
 
-  // Generic update to avoid TS error
   const updateAssessment = <K extends keyof AssessmentType>(
     index: number,
     field: K,
@@ -175,6 +177,8 @@ const HomePage = () => {
                   onChange={(e) => setDescription(e.target.value)}
                   className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   rows={2}
+                  maxLength={500}
+                  placeholder="Brief description (max 500 characters)"
                 />
               </div>
 
@@ -271,19 +275,33 @@ const HomePage = () => {
           {projects.map((project) => (
             <div
               key={project.id}
-              className="bg-white rounded-lg shadow p-5 border border-gray-200"
+              className="bg-white rounded-lg shadow p-5 border border-gray-200 flex flex-col"
             >
+              <div className="flex items-center justify-between mb-1">
               <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
+              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                #{project.id}
+              </span>
+            </div>
               <p className="text-sm text-gray-500 mt-1">
                 Academic year: {project.academic_year_start}
               </p>
               {project.description && (
-                <p className="text-sm text-gray-600 mt-2">{project.description}</p>
+                <>
+                  <p className="text-sm text-gray-500 mt-2">Description:</p>
+                  <p className="text-sm text-gray-600">{project.description}</p>
+                </>
               )}
-              <div className="mt-4 flex justify-end space-x-3">
+              <div className="mt-auto pt-4 flex items-center justify-end space-x-3">
+                <button
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                  className="px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-md hover:bg-indigo-100 transition-colors"
+                >
+                  Open
+                </button>
                 <button
                   onClick={() => handleDelete(project.id)}
-                  className="text-red-600 hover:text-red-800 text-sm font-medium"
+                  className="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors"
                 >
                   Delete
                 </button>
