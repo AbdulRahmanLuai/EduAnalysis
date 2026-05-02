@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     ALGORITHM: str
     EXPIRATION_TIME: int
     ADMIN_TOKEN: str
+    
+    MAX_UPLOAD_SIZE_MB: int = 10
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env"
