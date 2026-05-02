@@ -26,11 +26,28 @@ class Project(SQLModel, table=True):
     user_id: int = Field(foreign_key="users.id")
 
     user: Optional[User] = Relationship(back_populates="projects")
-    sections: List["Section"] = Relationship(back_populates="project")
-    students: List["Student"] = Relationship(back_populates="project")
-    courses: List["Course"] = Relationship(back_populates="project")
-    semesters: List["Semester"] = Relationship(back_populates="project")
-    assessment_types: List["AssessmentType"] = Relationship(back_populates="project")
+
+    # Children with cascade delete (ORM‑level cascade)
+    sections: List["Section"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    students: List["Student"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    courses: List["Course"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    semesters: List["Semester"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    assessment_types: List["AssessmentType"] = Relationship(
+        back_populates="project",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
 
 class Section(SQLModel, table=True):
@@ -42,8 +59,14 @@ class Section(SQLModel, table=True):
     project_id: int = Field(foreign_key="projects.id", ondelete="CASCADE")
 
     project: Optional[Project] = Relationship(back_populates="sections")
-    students: List["Student"] = Relationship(back_populates="section")
-    course_offerings: List["CourseOffering"] = Relationship(back_populates="section")
+    students: List["Student"] = Relationship(
+        back_populates="section",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    course_offerings: List["CourseOffering"] = Relationship(
+        back_populates="section",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
     __table_args__ = (UniqueConstraint("name", "project_id"),)
 
@@ -59,7 +82,10 @@ class Student(SQLModel, table=True):
 
     section: Optional[Section] = Relationship(back_populates="students")
     project: Optional[Project] = Relationship(back_populates="students")
-    marks: List["Mark"] = Relationship(back_populates="student")
+    marks: List["Mark"] = Relationship(
+        back_populates="student",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
     __table_args__ = (UniqueConstraint("st_external_id", "project_id"),)
 
@@ -72,7 +98,10 @@ class Course(SQLModel, table=True):
     project_id: int = Field(foreign_key="projects.id", ondelete="CASCADE")
 
     project: Optional[Project] = Relationship(back_populates="courses")
-    course_offerings: List["CourseOffering"] = Relationship(back_populates="course")
+    course_offerings: List["CourseOffering"] = Relationship(
+        back_populates="course",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
     __table_args__ = (UniqueConstraint("code", "project_id"),)
 
@@ -85,7 +114,10 @@ class Semester(SQLModel, table=True):
     project_id: int = Field(foreign_key="projects.id", ondelete="CASCADE")
 
     project: Optional[Project] = Relationship(back_populates="semesters")
-    course_offerings: List["CourseOffering"] = Relationship(back_populates="semester")
+    course_offerings: List["CourseOffering"] = Relationship(
+        back_populates="semester",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
     __table_args__ = (UniqueConstraint("number", "project_id"),)
 
@@ -101,7 +133,10 @@ class CourseOffering(SQLModel, table=True):
     course: Optional[Course] = Relationship(back_populates="course_offerings")
     section: Optional[Section] = Relationship(back_populates="course_offerings")
     semester: Optional[Semester] = Relationship(back_populates="course_offerings")
-    marks: List["Mark"] = Relationship(back_populates="course_offering")
+    marks: List["Mark"] = Relationship(
+        back_populates="course_offering",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
     __table_args__ = (UniqueConstraint("course_id", "section_id", "semester_id"),)
 
@@ -115,7 +150,10 @@ class AssessmentType(SQLModel, table=True):
     project_id: int = Field(foreign_key="projects.id", ondelete="CASCADE")
 
     project: Optional[Project] = Relationship(back_populates="assessment_types")
-    marks: List["Mark"] = Relationship(back_populates="assessment_type")
+    marks: List["Mark"] = Relationship(
+        back_populates="assessment_type",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
 
     __table_args__ = (UniqueConstraint("name", "project_id"),)
 
