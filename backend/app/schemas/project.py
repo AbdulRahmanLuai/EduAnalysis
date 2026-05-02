@@ -4,11 +4,11 @@ from typing import Optional
 class AssessmentTypeInput(BaseModel):
     name: str
     weight: int = Field(ge=0, le=100)
-    
+
 class ProjectCreate(BaseModel):
     name: str
     academic_year_start: int
-    description: Optional[str] = None
+    description: Optional[str] = Field(default=None, max_length=500)
     assessment_types: list[AssessmentTypeInput]
 
 class ProjectResponse(BaseModel):

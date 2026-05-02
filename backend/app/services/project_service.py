@@ -75,6 +75,14 @@ class ProjectService:
         logger.info(f"Project {project.id} committed successfully")
         return project
 
+    def get_project(self, db: Session, project_id: int, user_id: int) -> Project:
+        project = self.project_repo.get_by_id(db, project_id)
+        if not project:
+            raise HTTPException(status_code=404, detail="Project not found")
+        if project.user_id != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        return project
+    
     def get_user_projects(self, db: Session, user_id: int) -> list[Project]:
         logger.debug(f"Fetching projects for user_id={user_id}")
         projects = self.project_repo.get_by_user(db, user_id)
@@ -119,42 +127,87 @@ class ProjectService:
             for at in assessment_types:
                 columns.append(at.name)
 
+            # Missing columns
             missing = set(columns) - set(df.columns)
             if missing:
-                raise HTTPException(400, detail=f"Missing columns: {missing}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid Excel file: Missing required columns: {', '.join(missing)}."
+                )
+
             df = df[columns]
 
+            # Null values
             null_cols = df.columns[df.isnull().any()].tolist()
             if null_cols:
-                raise HTTPException(400, detail=f"Null values in: {null_cols}")
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid Excel file: Empty cells found in columns: {', '.join(null_cols)}."
+                )
 
+            # Column type checks (term, grade must be integers)
             for col in ["term", "grade"]:
                 if not pd.api.types.is_numeric_dtype(df[col]) or not (df[col] % 1 == 0).all():
-                    raise HTTPException(400, detail=f"'{col}' must be integer")
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid Excel file: Column '{col}' must contain whole numbers only."
+                    )
+
+            # Term range 1‑3
             if not df["term"].between(1, 3, inclusive="both").all():
-                raise HTTPException(400, detail="'term' must be 1-3")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid Excel file: Column 'term' must be between 1 and 3."
+                )
+
+            # Grade range 1‑13
             if not df["grade"].between(1, 13, inclusive="both").all():
-                raise HTTPException(400, detail="'grade' must be 1-13")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid Excel file: Column 'grade' must be between 1 and 13."
+                )
 
+            # Assessment type validations
             for at in assessment_types:
-                if not pd.api.types.is_numeric_dtype(df[at.name]):
-                    raise HTTPException(400, detail=f"'{at.name}' must be numeric")
-                if not df[at.name].between(0, 100, inclusive="both").all():
-                    raise HTTPException(400, detail=f"'{at.name}' values 0-100")
+                col = at.name
+                if not pd.api.types.is_numeric_dtype(df[col]):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid Excel file: Column '{col}' must be a number."
+                    )
+                if not df[col].between(0, 100, inclusive="both").all():
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Invalid Excel file: Column '{col}' values must be between 0 and 100."
+                    )
 
+            # Duplicate rows (same student, course, term)
             dupes = df.duplicated(subset=["student_id", "course_code", "term"], keep=False)
             if dupes.any():
-                raise HTTPException(400, detail="Duplicate student-course-term rows")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid Excel file: Duplicate rows found for the same student, course, and term."
+                )
 
+            # Inconsistent student names
             name_check = df.groupby("student_id")["student_name"].nunique()
             if (name_check > 1).any():
-                bad = name_check[name_check > 1].index.tolist()
-                raise HTTPException(400, detail=f"Inconsistent names for IDs: {bad}")
+                bad_ids = name_check[name_check > 1].index.tolist()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid Excel file: Student ID(s) {', '.join(map(str, bad_ids))} have multiple names. Each ID must have a consistent name."
+                )
 
+            # Student in multiple grades/sections
             mapping_check = df.groupby("student_id")[["grade", "section"]].nunique()
             inconsistent = mapping_check[(mapping_check > 1).any(axis=1)]
             if not inconsistent.empty:
-                raise HTTPException(400, detail=f"Students in multiple grades/sections: {inconsistent.index.tolist()}")
+                bad_ids = inconsistent.index.tolist()
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid Excel file: Student ID(s) {', '.join(map(str, bad_ids))} appear in multiple grades or sections. Each student must belong to a single grade and section."
+                )
+
             return df
 
         # --- main logic ---

@@ -35,6 +35,15 @@ def get_project_service() -> ProjectService:
         CourseOfferingRepo(),
         MarkRepo(),
     )
+    
+@router.get("/{project_id}", response_model=ProjectResponse)
+def get_project(
+    project_id: int,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+    service: ProjectService = Depends(get_project_service)
+):
+    return service.get_project(db, project_id, current_user.id)
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(
