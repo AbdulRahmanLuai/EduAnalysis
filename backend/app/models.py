@@ -68,7 +68,7 @@ class Section(SQLModel, table=True):
         sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
 
-    __table_args__ = (UniqueConstraint("name", "project_id"),)
+    __table_args__ = (UniqueConstraint("grade", "name", "project_id"),)
 
 
 class Student(SQLModel, table=True):
