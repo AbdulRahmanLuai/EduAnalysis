@@ -229,7 +229,7 @@ def get_courses(
     return service.get_project_courses(db, project_id, current_user.id, student_id)
 
 
-@router.get("/{project_id}/assessment-types", response_model=AssessmentTypeInfo)
+@router.get("/{project_id}/assessment-types", response_model=list[AssessmentTypeInfo])
 def get_assessment_types(
     project_id: int,
     db: Session = Depends(get_session),
@@ -237,5 +237,14 @@ def get_assessment_types(
     service: ProjectService = Depends(get_project_service)
 ):
     logger.info(f"Fetching assessment types for project_id={project_id} by user_id={current_user.id}")
-    print(service.get_assessment_types(db, project_id, current_user.id))
-    return service.get_assessment_types(db, project_id, current_user.id)
+    res = service.get_assessment_types(db, project_id, current_user.id)
+    return [AssessmentTypeInfo(name=at["name"], weight=at["weight"]) for at in res]
+
+@router.get("/{project_id}/sections", response_model=list[dict])
+def get_sections(
+    project_id: int,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+    service: ProjectService = Depends(get_project_service)
+):
+    return service.get_project_sections(db, project_id, current_user.id)

@@ -340,8 +340,6 @@ class ProjectService:
             return [{"code": c.code} for c in courses]
         
         
-    # GET /projects/{project_id}/assessment-types
-    # Returns [ { "name": "quiz", "weight": 20 }, { "name": "mid", "weight": 30 }, ... ]
     def get_assessment_types(self, db: Session, project_id: int, user_id: int) -> list[dict]:
         project = self.project_repo.get_by_id(db, project_id)
         if not project:
@@ -351,3 +349,12 @@ class ProjectService:
 
         assessment_types = self.assessment_repo.get_by_project(db, project_id)
         return [{"name": at.name, "weight": at.weight} for at in assessment_types]
+    
+    def get_project_sections(self, db: Session, project_id: int, user_id: int) -> list[dict]:
+        project = self.project_repo.get_by_id(db, project_id)
+        if not project:
+            raise HTTPException(404, detail="Project not found")
+        if project.user_id != user_id:
+            raise HTTPException(403, detail="Not authorized")
+        sections = self.section_repo.get_by_project(db, project_id)
+        return [{"grade": s.grade, "name": s.name} for s in sections]
