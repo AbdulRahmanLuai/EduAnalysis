@@ -6,6 +6,7 @@ from sqlmodel import SQLModel
 from app.db import engine
 from app.config import settings
 from app.logging_config import setup_logging
+from app.api.endpoints import analytics
 
 # Setup logging before anything else
 setup_logging()
@@ -42,6 +43,7 @@ def health_check():
 from app.api.endpoints import auth, projects
 app.include_router(auth.router)
 app.include_router(projects.router)
+app.include_router(analytics.router)
 
 if __name__ == "__main__":
     import uvicorn

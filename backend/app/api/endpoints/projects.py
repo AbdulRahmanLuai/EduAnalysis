@@ -19,6 +19,8 @@ from app.repos.mark_repo import MarkRepo
 import pandas as pd
 from io import BytesIO
 from fastapi.responses import StreamingResponse
+from typing import Optional
+from app.repos.analytics_repo import AnalyticsRepo
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,7 @@ def get_project_service() -> ProjectService:
         StudentRepo(),
         CourseOfferingRepo(),
         MarkRepo(),
+        analytics_repo=AnalyticsRepo()
     )
     
 @router.get("/{project_id}", response_model=ProjectResponse)
@@ -201,3 +204,38 @@ async def populate_project(
         raise HTTPException(status_code=500, detail="Internal server error during processing.")
 
     return {"message": "Project populated successfully"}
+
+from app.schemas.project import StudentInfo, CourseInfo  # add to existing imports
+
+@router.get("/{project_id}/students", response_model=list[StudentInfo])
+def get_students(
+    project_id: int,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+    service: ProjectService = Depends(get_project_service)
+):
+    return service.get_project_students(db, project_id, current_user.id)
+
+
+
+@router.get("/{project_id}/courses", response_model=list[CourseInfo])
+def get_courses(
+    project_id: int,
+    student_id: Optional[str] = None,        # <-- new query param
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+    service: ProjectService = Depends(get_project_service)
+):
+    return service.get_project_courses(db, project_id, current_user.id, student_id)
+
+
+@router.get("/{project_id}/assessment-types", response_model=list[dict])
+def get_assessment_types(
+    project_id: int,
+    db: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+    service: ProjectService = Depends(get_project_service)
+):
+    logger.info(f"Fetching assessment types for project_id={project_id} by user_id={current_user.id}")
+    print(service.get_assessment_types(db, project_id, current_user.id))
+    return service.get_assessment_types(db, project_id, current_user.id)

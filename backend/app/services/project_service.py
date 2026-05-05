@@ -1,13 +1,12 @@
 import logging
-from sqlmodel import Session, select
+from sqlmodel import Session
 from fastapi import HTTPException, status
-from app.models import Project, AssessmentType
 from app.repos.project_repo import ProjectRepo
 from app.repos.assessment_type_repo import AssessmentTypeRepo
 from app.schemas.project import ProjectCreate
 import pandas as pd
 import io
-from app.models import (Semester, Section, Student, Course, CourseOffering, Mark)
+from app.models import (Semester, Section, Student, Course, CourseOffering, Mark, Project, AssessmentType)
 from app.repos.project_repo import ProjectRepo
 from app.repos.assessment_type_repo import AssessmentTypeRepo
 from app.repos.semester_repo import SemesterRepo
@@ -16,7 +15,11 @@ from app.repos.course_repo import CourseRepo
 from app.repos.student_repo import StudentRepo
 from app.repos.course_offering_repo import CourseOfferingRepo
 from app.repos.mark_repo import MarkRepo
+from app.repos.analytics_repo import AnalyticsRepo
 from app.schemas.project import ProjectCreate
+from typing import Optional
+
+
 
 
 logger = logging.getLogger(__name__)
@@ -34,6 +37,7 @@ class ProjectService:
         student_repo: StudentRepo,
         offering_repo: CourseOfferingRepo,
         mark_repo: MarkRepo,
+        analytics_repo: AnalyticsRepo
     ):
         self.project_repo = project_repo
         self.assessment_repo = assessment_repo
@@ -43,6 +47,7 @@ class ProjectService:
         self.student_repo = student_repo
         self.offering_repo = offering_repo
         self.mark_repo = mark_repo
+        self.analytics_repo = analytics_repo
         self.base_columns = ["term", "grade", "section", "student_id", "student_name", "course_code"]
 
     def create_project(self, db: Session, data: ProjectCreate, user_id: int) -> Project:
@@ -305,3 +310,44 @@ class ProjectService:
         db.add(project)
         db.commit()
         logger.info(f"Project {project_id} populated: {len(students)} students, {len(marks)} marks")
+        
+        
+    def get_project_students(self, db: Session, project_id: int, user_id: int) -> list[dict]:
+        project = self.project_repo.get_by_id(db, project_id)
+        if not project:
+            raise HTTPException(404, detail="Project not found")
+        if project.user_id != user_id:
+            raise HTTPException(403, detail="Not authorized")
+        students = self.student_repo.get_by_project(db, project_id)
+        return [{"st_external_id": s.st_external_id, "name": s.name} for s in students]
+
+
+
+    def get_project_courses(
+        self, db: Session, project_id: int, user_id: int, student_id: Optional[str] = None
+    ) -> list[dict]:
+        project = self.project_repo.get_by_id(db, project_id)
+        if not project:
+            raise HTTPException(404, detail="Project not found")
+        if project.user_id != user_id:
+            raise HTTPException(403, detail="Not authorized")
+
+        if student_id:
+            codes = self.analytics_repo.get_courses_by_student(db, project_id, student_id)
+            return [{"code": code} for code in codes]
+        else:
+            courses = self.course_repo.get_by_project(db, project_id)
+            return [{"code": c.code} for c in courses]
+        
+        
+    # GET /projects/{project_id}/assessment-types
+    # Returns [ { "name": "quiz", "weight": 20 }, { "name": "mid", "weight": 30 }, ... ]
+    def get_assessment_types(self, db: Session, project_id: int, user_id: int) -> list[dict]:
+        project = self.project_repo.get_by_id(db, project_id)
+        if not project:
+            raise HTTPException(404, detail="Project not found")
+        if project.user_id != user_id:
+            raise HTTPException(403, detail="Not authorized")
+
+        assessment_types = self.assessment_repo.get_by_project(db, project_id)
+        return [{"name": at.name, "weight": at.weight} for at in assessment_types]

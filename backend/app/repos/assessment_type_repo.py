@@ -10,3 +10,7 @@ class AssessmentTypeRepo:
     def get_by_project(self, db: Session, project_id: int) -> list[AssessmentType]:
         stmt = select(AssessmentType).where(AssessmentType.project_id == project_id)
         return list(db.exec(stmt).all())
+    
+    def get_assignment_type_names_by_project(self, db: Session, project_id: int) -> list[str]:
+        stmt = select(AssessmentType.name).where(AssessmentType.project_id == project_id)
+        return db.exec(stmt).scalars().all()

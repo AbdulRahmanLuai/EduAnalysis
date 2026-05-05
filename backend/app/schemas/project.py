@@ -19,3 +19,11 @@ class ProjectResponse(BaseModel):
     user_id: int
     is_populated: bool
     model_config = {"from_attributes": True}
+    
+    
+class StudentInfo(BaseModel):
+    st_external_id: str
+    name: str
+
+class CourseInfo(BaseModel):
+    code: str
