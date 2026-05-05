@@ -27,3 +27,7 @@ class StudentInfo(BaseModel):
 
 class CourseInfo(BaseModel):
     code: str
+    
+class AssessmentTypeInfo(BaseModel):
+    name: str
+    weight: int

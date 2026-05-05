@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException
 from sqlmodel import Session
 from app.db import get_session
-from app.schemas.project import ProjectCreate, ProjectResponse
+from app.schemas.project import AssessmentTypeInfo, ProjectCreate, ProjectResponse
 from app.services.project_service import ProjectService
 from app.repos.project_repo import ProjectRepo
 from app.repos.assessment_type_repo import AssessmentTypeRepo
@@ -229,7 +229,7 @@ def get_courses(
     return service.get_project_courses(db, project_id, current_user.id, student_id)
 
 
-@router.get("/{project_id}/assessment-types", response_model=list[dict])
+@router.get("/{project_id}/assessment-types", response_model=AssessmentTypeInfo)
 def get_assessment_types(
     project_id: int,
     db: Session = Depends(get_session),
