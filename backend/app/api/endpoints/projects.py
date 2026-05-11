@@ -18,6 +18,7 @@ from app.repos.course_offering_repo import CourseOfferingRepo
 from app.repos.mark_repo import MarkRepo
 import pandas as pd
 from io import BytesIO
+import zipfile
 from fastapi.responses import StreamingResponse
 from typing import Optional
 from app.repos.analytics_repo import AnalyticsRepo
@@ -146,6 +147,17 @@ def _is_valid_excel_magic(file_bytes: bytes) -> bool:
             return True
     return False
 
+def _get_uncompressed_size(file_bytes: bytes) -> int:
+    """Return total uncompressed size of all ZIP members, or 0 if not a ZIP."""
+    try:
+        total = 0
+        with zipfile.ZipFile(BytesIO(file_bytes)) as zf:
+            for info in zf.infolist():
+                total += info.file_size
+        return total
+    except zipfile.BadZipFile:
+        return 0   
+
 @router.post("/{project_id}/populate", status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
 async def populate_project(
@@ -188,6 +200,15 @@ async def populate_project(
             status_code=400,
             detail="File does not appear to be a valid Excel file (magic bytes mismatch)."
         )
+        
+    if file_ext == ".xlsx":
+        max_uncompressed = settings.MAX_UPLOAD_UNCOMPRESSED_MB * 1024 * 1024
+        uncompressed_size = _get_uncompressed_size(file_bytes)
+        if uncompressed_size > max_uncompressed:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large when uncompressed (max {settings.MAX_UPLOAD_UNCOMPRESSED_MB} MB)."
+            )
 
     try:
         service.populate_project(db, project_id, current_user.id, file_bytes, file_ext)

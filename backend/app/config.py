@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     ADMIN_TOKEN: str
     
     MAX_UPLOAD_SIZE_MB: int = 10
+    MAX_UPLOAD_UNCOMPRESSED_MB: int = 50
     
     CORS_ORIGINS: list[str] = ["*"]
 
