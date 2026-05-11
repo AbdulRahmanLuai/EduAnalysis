@@ -21,6 +21,7 @@ from io import BytesIO
 from fastapi.responses import StreamingResponse
 from typing import Optional
 from app.repos.analytics_repo import AnalyticsRepo
+from app.main import limiter
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +39,9 @@ def get_project_service() -> ProjectService:
         MarkRepo(),
         analytics_repo=AnalyticsRepo()
     )
-    
+
 @router.get("/{project_id}", response_model=ProjectResponse)
+@limiter.limit("30/minute")
 def get_project(
     project_id: int,
     db: Session = Depends(get_session),
@@ -49,6 +51,7 @@ def get_project(
     return service.get_project(db, project_id, current_user.id)
 
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/minute")
 def create_project(
     project_data: ProjectCreate,
     db: Session = Depends(get_session),
@@ -65,6 +68,7 @@ def create_project(
         raise
 
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
+@limiter.limit("10/minute")
 def delete_project(
     project_id: int,
     db: Session = Depends(get_session),
@@ -81,6 +85,7 @@ def delete_project(
         raise
 
 @router.get("", response_model=list[ProjectResponse])
+@limiter.limit("30/minute")
 def get_projects(
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -95,23 +100,15 @@ def get_projects(
         logger.error(f"Failed to fetch projects: {e}", exc_info=True)
         raise
 
-
-from fastapi.responses import StreamingResponse
-import pandas as pd
-
 @router.get("/{project_id}/template")
+@limiter.limit("20/minute")
 def get_template(
     project_id: int,
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
     service: ProjectService = Depends(get_project_service)
 ):
-    """
-    Download an empty Excel template for the project.
-    The file contains required columns plus assessment type headers.
-    """
     logger.info(f"Template request for project_id={project_id} by user_id={current_user.id}")
-
     try:
         df, file_name = service.get_template(db, project_id, current_user.id)
     except HTTPException:
@@ -120,7 +117,6 @@ def get_template(
         logger.error(f"Failed to generate template: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal error generating template")
 
-    # Convert DataFrame to Excel bytes in memory
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df.to_excel(writer, index=False, sheet_name='Data')
@@ -131,9 +127,7 @@ def get_template(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename={file_name}"}
     )
-    
-    
-    
+
 # Allowed Excel magic bytes
 EXCEL_MAGIC_BYTES = {
     b'PK\x03\x04',                              # .xlsx (ZIP-based)
@@ -147,8 +141,8 @@ def _is_valid_excel_magic(file_bytes: bytes) -> bool:
             return True
     return False
 
-
 @router.post("/{project_id}/populate", status_code=status.HTTP_200_OK)
+@limiter.limit("5/minute")
 async def populate_project(
     project_id: int,
     file: UploadFile = File(...),
@@ -159,7 +153,6 @@ async def populate_project(
     """Upload an Excel file to populate a project. File must be valid .xlsx or .xls."""
     logger.info(f"Populate request for project_id={project_id} by user_id={current_user.id}")
 
-    # 1. Validate file extension (quick rejection)
     allowed_ext = {".xlsx", ".xls"}
     file_ext = Path(file.filename).suffix.lower()
     if file_ext not in allowed_ext:
@@ -169,7 +162,6 @@ async def populate_project(
             detail=f"Only {', '.join(allowed_ext)} files are allowed."
         )
 
-    # 2. Check file size before reading whole file
     max_size = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
     if file.size is not None and file.size > max_size:
         raise HTTPException(
@@ -177,7 +169,6 @@ async def populate_project(
             detail=f"File too large (max {settings.MAX_UPLOAD_SIZE_MB} MB)."
         )
 
-    # 3. Read file content (limits to max_size + 1 to detect oversized files)
     file_bytes = await file.read()
     if len(file_bytes) > max_size:
         raise HTTPException(
@@ -185,7 +176,6 @@ async def populate_project(
             detail=f"File too large (max {settings.MAX_UPLOAD_SIZE_MB} MB)."
     )
 
-    # 4. Validate magic bytes (real Excel, not just a renamed file)
     if not _is_valid_excel_magic(file_bytes):
         logger.warning(f"Invalid file magic bytes for {file.filename}")
         raise HTTPException(
@@ -193,7 +183,6 @@ async def populate_project(
             detail="File does not appear to be a valid Excel file (magic bytes mismatch)."
         )
 
-    # 5. Delegate to service for data processing
     try:
         service.populate_project(db, project_id, current_user.id, file_bytes, file_ext)
     except HTTPException:
@@ -208,6 +197,7 @@ async def populate_project(
 from app.schemas.project import StudentInfo, CourseInfo  # add to existing imports
 
 @router.get("/{project_id}/students", response_model=list[StudentInfo])
+@limiter.limit("30/minute")
 def get_students(
     project_id: int,
     db: Session = Depends(get_session),
@@ -216,20 +206,19 @@ def get_students(
 ):
     return service.get_project_students(db, project_id, current_user.id)
 
-
-
 @router.get("/{project_id}/courses", response_model=list[CourseInfo])
+@limiter.limit("30/minute")
 def get_courses(
     project_id: int,
-    student_id: Optional[str] = None,        # <-- new query param
+    student_id: Optional[str] = None,
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
     service: ProjectService = Depends(get_project_service)
 ):
     return service.get_project_courses(db, project_id, current_user.id, student_id)
 
-
 @router.get("/{project_id}/assessment-types", response_model=list[AssessmentTypeInfo])
+@limiter.limit("30/minute")
 def get_assessment_types(
     project_id: int,
     db: Session = Depends(get_session),
@@ -241,6 +230,7 @@ def get_assessment_types(
     return [AssessmentTypeInfo(name=at["name"], weight=at["weight"]) for at in res]
 
 @router.get("/{project_id}/sections", response_model=list[dict])
+@limiter.limit("30/minute")
 def get_sections(
     project_id: int,
     db: Session = Depends(get_session),

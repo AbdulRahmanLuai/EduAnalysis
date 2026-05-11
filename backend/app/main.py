@@ -7,6 +7,11 @@ from app.db import engine
 from app.config import settings
 from app.logging_config import setup_logging
 from app.api.endpoints import analytics
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+from slowapi.middleware import SlowAPIMiddleware
+
+
 
 # Setup logging before anything else
 setup_logging()
@@ -20,7 +25,11 @@ async def lifespan(app: FastAPI):
     yield
     logger.info("Shutting down")
 
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(lifespan=lifespan)
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
 
 app.add_middleware(
     CORSMiddleware,

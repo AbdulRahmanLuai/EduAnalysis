@@ -7,6 +7,7 @@ from app.core.security import get_current_user
 from app.repos.analytics_repo import AnalyticsRepo
 from app.schemas.analytics import SectionScoresRequest, SectionScoresResponse, StudentPerformanceItem, StudentPerformanceRequest
 import logging
+from app.main import limiter
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ def get_analytics_service() -> AnalyticsService:
     
 
 @router.post("/student-performance", response_model=list[StudentPerformanceItem])
+@limiter.limit("20/minute")
 def get_student_performance(
     project_id: int,
     data: StudentPerformanceRequest,
@@ -33,6 +35,7 @@ def get_student_performance(
     return service.get_student_performance(db, project_id, data.student_external_id, data.course_codes, current_user.id)
 
 @router.post("/section-scores", response_model=SectionScoresResponse)
+@limiter.limit("20/minute")
 def get_section_scores(
     project_id: int,
     data: SectionScoresRequest,
