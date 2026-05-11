@@ -5,6 +5,8 @@ from app.db import get_session
 from app.schemas.auth import UserCreate, UserLogin, Token
 from app.services.auth_service import AuthService
 from app.repos.user_repo import UserRepo
+from app.limiter import limiter
+from fastapi import Request
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +16,9 @@ def get_auth_service() -> AuthService:
     return AuthService(UserRepo())
 
 @router.post("/signup", response_model=Token)
-@router.limiter.limit("5/minute")
+@limiter.limit("5/minute")
 def signup_route(
+    request: Request,
     user: UserCreate,
     db: Session = Depends(get_session),
     service: AuthService = Depends(get_auth_service)
@@ -30,8 +33,9 @@ def signup_route(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 @router.post("/login", response_model=Token)
-@router.limiter.limit("10/minute")
+@limiter.limit("10/minute")
 def login_route(
+    request: Request,
     user: UserLogin,
     db: Session = Depends(get_session),
     service: AuthService = Depends(get_auth_service)

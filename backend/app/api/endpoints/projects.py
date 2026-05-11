@@ -1,5 +1,5 @@
 import logging
-from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, status, UploadFile, File, HTTPException, Request
 from sqlmodel import Session
 from app.db import get_session
 from app.schemas.project import AssessmentTypeInfo, ProjectCreate, ProjectResponse
@@ -43,6 +43,7 @@ def get_project_service() -> ProjectService:
 @router.get("/{project_id}", response_model=ProjectResponse)
 @limiter.limit("30/minute")
 def get_project(
+    request: Request,
     project_id: int,
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -53,6 +54,7 @@ def get_project(
 @router.post("", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("10/minute")
 def create_project(
+    request: Request,
     project_data: ProjectCreate,
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -70,6 +72,7 @@ def create_project(
 @router.delete("/{project_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("10/minute")
 def delete_project(
+    request: Request,
     project_id: int,
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -87,6 +90,7 @@ def delete_project(
 @router.get("", response_model=list[ProjectResponse])
 @limiter.limit("30/minute")
 def get_projects(
+    request: Request,
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
     service: ProjectService = Depends(get_project_service)
@@ -103,6 +107,7 @@ def get_projects(
 @router.get("/{project_id}/template")
 @limiter.limit("20/minute")
 def get_template(
+    request: Request,
     project_id: int,
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -144,6 +149,7 @@ def _is_valid_excel_magic(file_bytes: bytes) -> bool:
 @router.post("/{project_id}/populate", status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
 async def populate_project(
+    request: Request,
     project_id: int,
     file: UploadFile = File(...),
     db: Session = Depends(get_session),
@@ -199,6 +205,7 @@ from app.schemas.project import StudentInfo, CourseInfo  # add to existing impor
 @router.get("/{project_id}/students", response_model=list[StudentInfo])
 @limiter.limit("30/minute")
 def get_students(
+    request: Request,
     project_id: int,
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -209,6 +216,7 @@ def get_students(
 @router.get("/{project_id}/courses", response_model=list[CourseInfo])
 @limiter.limit("30/minute")
 def get_courses(
+    request: Request,
     project_id: int,
     student_id: Optional[str] = None,
     db: Session = Depends(get_session),
@@ -220,6 +228,7 @@ def get_courses(
 @router.get("/{project_id}/assessment-types", response_model=list[AssessmentTypeInfo])
 @limiter.limit("30/minute")
 def get_assessment_types(
+    request: Request,
     project_id: int,
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
@@ -232,6 +241,7 @@ def get_assessment_types(
 @router.get("/{project_id}/sections", response_model=list[dict])
 @limiter.limit("30/minute")
 def get_sections(
+    request: Request,
     project_id: int,
     db: Session = Depends(get_session),
     current_user: User = Depends(get_current_user),
