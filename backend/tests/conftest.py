@@ -7,6 +7,9 @@ from app.models import *
 from app.core.security import create_access_token
 from app.repos.user_repo import UserRepo
 from app.core.security import hash_password
+from limits.storage import MemoryStorage
+from app.config import settings
+
 
 # Use in‑memory SQLite for tests
 TEST_DATABASE_URL = "sqlite:///./test.db?mode=memory&cache=shared"
@@ -60,3 +63,15 @@ def test_user_fixture(session: Session):
         "token": token,
         "password": raw_password     
     }
+    
+@pytest.fixture(autouse=True)
+def reset_rate_limits():
+    """Reset rate‑limit counters before each test."""
+    from app.limiter import limiter
+    limiter.reset()
+    
+
+@pytest.fixture(autouse=True)
+def raise_project_limit(monkeypatch):
+    """Allow unlimited projects during testing."""
+    monkeypatch.setattr(settings, "MAX_PROJECTS_PER_USER", 10000)

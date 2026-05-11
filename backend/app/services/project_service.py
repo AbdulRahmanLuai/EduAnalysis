@@ -18,6 +18,7 @@ from app.repos.mark_repo import MarkRepo
 from app.repos.analytics_repo import AnalyticsRepo
 from app.schemas.project import ProjectCreate
 from typing import Optional
+from app.config import settings
 
 
 
@@ -52,6 +53,13 @@ class ProjectService:
 
     def create_project(self, db: Session, data: ProjectCreate, user_id: int) -> Project:
         logger.info(f"Creating project for user_id={user_id}, name='{data.name}'")
+        
+        project_count = len(self.project_repo.get_by_user(db, user_id))
+        if project_count >= settings.MAX_PROJECTS_PER_USER:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Project limit reached ({settings.MAX_PROJECTS_PER_USER} max). Please delete an existing project first."
+            )
         
         # validate sum of weights add to 100
         weight_sum = sum([a_t.weight for a_t in data.assessment_types])

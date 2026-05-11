@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 10
     MAX_UPLOAD_UNCOMPRESSED_MB: int = 50
     
+    MAX_PROJECTS_PER_USER: int = 20
+    
     CORS_ORIGINS: list[str] = ["*"]
 
     model_config = SettingsConfigDict(

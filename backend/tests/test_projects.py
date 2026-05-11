@@ -124,6 +124,31 @@ def test_delete_project_unauthorized(client: TestClient, auth_header, session):
     response = client.delete(f"/projects/{project_id}", headers=headers2)
     assert response.status_code == 403
     
+import pytest
+from app.config import settings
+
+def test_project_limit_reached(client, auth_header, monkeypatch):
+    """Ensure user cannot exceed MAX_PROJECTS_PER_USER."""
+    # Temporarily set a very low limit for this test
+    monkeypatch.setattr(settings, "MAX_PROJECTS_PER_USER", 3)
+
+    payload = {
+        "name": "Limit Test",
+        "academic_year_start": 2025,
+        "assessment_types": [{"name": "quiz", "weight": 100}],
+    }
+
+    # Create projects up to the limit – all should succeed
+    for i in range(3):
+        resp = client.post("/projects", json=payload, headers=auth_header)
+        assert resp.status_code == 201, f"Project {i+1} should be created"
+
+    # The next one must be rejected with a descriptive 400
+    resp = client.post("/projects", json=payload, headers=auth_header)
+    assert resp.status_code == 400
+    detail = resp.json()["detail"].lower()
+    assert "limit" in detail or "maximum" in detail or "reached" in detail
+    
     
 
 class TestProjectPopulate:
@@ -196,6 +221,8 @@ class TestProjectPopulate:
         }
         resp = client.post("/projects", json=payload, headers=auth_header)
         project_id = resp.json()["id"]
+        print("DEBUG status:", resp.status_code)
+        print("DEBUG body:", resp.json())
 
         excel_data = [{"term": 1, "grade": 10, "section": "A", "student_id": 1, "student_name": "X", "course_code": "C1", "quiz": 50}]
         test_file = self.create_test_excel(excel_data)
@@ -243,7 +270,7 @@ class TestProjectPopulate:
             headers=auth_header
         )
         assert resp.status_code == 400
-        assert "missing columns" in resp.json()["detail"].lower()
+        assert "missing required columns" in resp.json()["detail"].lower()
 
     def test_populate_unauthorized(self, client, auth_header, session):
         # Create project as test user
@@ -282,3 +309,5 @@ class TestProjectPopulate:
             headers=auth_header
         )
         assert resp.status_code == 404
+        
+    
