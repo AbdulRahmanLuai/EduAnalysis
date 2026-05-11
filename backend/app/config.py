@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     ADMIN_TOKEN: str
     
     MAX_UPLOAD_SIZE_MB: int = 10
+    
+    CORS_ORIGINS: list[str] = ["*"]
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env"

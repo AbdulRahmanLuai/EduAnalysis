@@ -1,6 +1,6 @@
 from sqlmodel import Session, distinct, select
 from sqlalchemy.orm import joinedload
-from app.models import Mark, CourseOffering, Course, Section, Semester, AssessmentType, Student
+from app.models import Mark, CourseOffering, Course, Section, Semester, AssessmentType, Student, Semester, Section
 from collections import defaultdict
 
 class AnalyticsRepo:
@@ -60,8 +60,6 @@ class AnalyticsRepo:
         )
         return list(db.exec(stmt).all())
     
-    from app.models import Semester  # add import
-
     def get_section_scores_all(
         self,
         db: Session,
